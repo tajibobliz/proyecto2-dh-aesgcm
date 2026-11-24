@@ -1,0 +1,39 @@
+operacion,bits,milisegundos
+exp_mod propio,512,0.6586
+pow nativo,512,0.4633
+DH generar par,512,0.7253
+DH validar publica,512,0.7194
+DH secreto,512,1.3018
+Schnorr firmar,512,1.7037
+Schnorr verificar,512,2.3933
+exp_mod propio,1024,3.4584
+pow nativo,1024,2.4781
+DH generar par,1024,3.4243
+DH validar publica,1024,3.3258
+DH secreto,1024,6.7992
+Schnorr firmar,1024,7.5089
+Schnorr verificar,1024,10.5858
+exp_mod propio,2048,24.4617
+pow nativo,2048,20.2971
+DH generar par,2048,27.0069
+DH validar publica,2048,24.7263
+DH secreto,2048,49.7038
+Schnorr firmar,2048,49.6189
+Schnorr verificar,2048,75.4511
+handshake anonimo,512,11.8432
+handshake autenticado,512,19.7687
+handshake anonimo,1024,34.3586
+handshake autenticado,1024,69.922
+handshake anonimo,2048,207.1538
+handshake autenticado,2048,454.2823
+generar primo seguro (mediana),256,42.5823
+generar primo seguro (mediana),384,284.0589
+generar primo seguro (mediana),512,373.5381
+Miller-Rabin 40 rondas,512,26.8763
+Miller-Rabin 40 rondas,1024,132.0924
+Miller-Rabin 40 rondas,2048,998.9544
+AES-256-GCM propio 100 kB,-,344.3701
+AES-256-GCM libreria 10 MB,-,3.7302
+SHA-256 propio 100 kB,-,184.6702
+HMAC-SHA256 propio 100 kB,-,180.7643
+HKDF 32 bytes,-,0.9764
