@@ -146,3 +146,15 @@ def test_identidades_se_guardan_y_cargan(tmp_path, id_cliente):
     assert publica.privada is None
     assert publica.publica == id_cliente.publica
     assert "privada" not in (tmp_path / "c.pub.json").read_text()
+
+
+def test_cliente_propio_con_servidor_libreria(id_servidor, id_cliente):
+    servidor = ServidorSeguro("127.0.0.1", 0, id_servidor, (id_cliente.publica,),
+                              silencioso=True, aes="libreria")
+    hilo = _en_hilo(servidor)
+    with ClienteSeguro("127.0.0.1", servidor.puerto, id_cliente, id_servidor.publica,
+                       aes="propia") as c:
+        c.conectar()
+        assert c.enviar_mensaje(b"interoperable") == b"recibido: interoperable"
+    hilo.join(timeout=10)
+    servidor.cerrar()

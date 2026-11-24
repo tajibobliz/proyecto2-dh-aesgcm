@@ -19,10 +19,16 @@ mensajes con AES-256-GCM.
 | Intercambio Diffie-Hellman | `src/protocolo/dh.py` | RFC 3526 (grupo) |
 | Firma digital de Schnorr | `src/protocolo/schnorr.py` | - |
 | Handshake autenticado | `src/protocolo/handshake.py` | - |
+| Cifrador de bloque AES-256 | `src/simetrico/aes.py` | FIPS 197 |
+| Modo GCM (cifrado autenticado) | `src/simetrico/gcm.py` | NIST SP 800-38D |
 
-Unica primitiva de libreria: AES-256-GCM (`cryptography`), por ser cifrado
-simetrico. Las pruebas usan `hashlib` y `hmac` solo como referencia para
-validar las implementaciones propias.
+El sistema funciona sin ninguna libreria criptografica externa. La libreria
+`cryptography` aparece solo en tres lugares, siempre como comparacion:
+
+- en las pruebas, como referencia para validar AES-GCM (igual que `hashlib`
+  y `hmac` para SHA-256 y HMAC);
+- en el modo opcional `--aes libreria`, para comparar con la version propia;
+- en `src/medir_rendimiento.py`, para la tabla de rendimiento.
 
 ## Instalacion rapida
 
@@ -51,8 +57,16 @@ python src/atacante.py --modo mitm                 # terminal 3
 python src/cliente.py --puerto 6000 --mensaje "hola"
 ```
 
-Modos de ataque: `pasivo`, `alterar`, `repetir`, `mitm`. La guia completa
-esta en [MANUAL_DESPLIEGUE.md](MANUAL_DESPLIEGUE.md).
+Modos de ataque: `pasivo`, `alterar`, `repetir`, `mitm`.
+
+Implementacion de AES-256-GCM (ambas son interoperables):
+
+```bash
+python src/servidor.py                     # propia (por defecto)
+python src/servidor.py --aes libreria      # libreria cryptography
+```
+
+La guia completa esta en [MANUAL_DESPLIEGUE.md](MANUAL_DESPLIEGUE.md).
 
 ## Como funciona
 
@@ -88,6 +102,7 @@ datos   = AES-256-GCM(clave, contador, mensaje)
 ```
 src/nucleo/       aritmetica modular, primalidad, primos
 src/hashing/      SHA-256, HMAC, HKDF
+src/simetrico/    AES-256 y modo GCM
 src/protocolo/    grupos, DH, Schnorr, canal AES-GCM, handshake, identidades
 src/red/          transporte TCP, servidor, cliente, atacante
 tests/            pruebas unitarias y de extremo a extremo

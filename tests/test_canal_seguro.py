@@ -109,3 +109,38 @@ def test_borrar_sobrescribe_con_ceros():
     secreto = bytearray(b"clave muy secreta")
     borrar(secreto)
     assert secreto == bytearray(17)
+
+
+# ------------------------------------------------- implementacion propia vs libreria
+@pytest.mark.parametrize("implementacion", ["propia", "libreria"])
+def test_ambas_implementaciones_detectan_alteraciones(implementacion):
+    k1, k2 = secrets.token_bytes(32), secrets.token_bytes(32)
+    emisor = CanalSeguro(k1, k2, implementacion)
+    receptor = CanalSeguro(k2, k1, implementacion)
+    paquete = bytearray(emisor.cifrar(b"pagar 100 Bs"))
+    paquete[10] ^= 0x01
+    with pytest.raises(ErrorCanal, match="alterado"):
+        receptor.descifrar(bytes(paquete))
+
+
+@pytest.mark.parametrize("emisor_impl, receptor_impl",
+                         [("propia", "libreria"), ("libreria", "propia")])
+def test_implementaciones_son_interoperables(emisor_impl, receptor_impl):
+    # Si la implementacion propia tuviera un solo bit distinto al estandar,
+    # la libreria no podria descifrar sus mensajes (ni al reves).
+    k1, k2 = secrets.token_bytes(32), secrets.token_bytes(32)
+    emisor = CanalSeguro(k1, k2, emisor_impl)
+    receptor = CanalSeguro(k2, k1, receptor_impl)
+    for texto in (b"", b"hola", secrets.token_bytes(1000)):
+        paquete = emisor.cifrar(texto, asociado=b"v1")
+        assert receptor.descifrar(paquete, asociado=b"v1") == texto
+        assert emisor.descifrar(receptor.cifrar(texto)) == texto
+
+
+def test_implementacion_desconocida():
+    with pytest.raises(ValueError):
+        CanalSeguro(bytes(32), bytes(32), "otra")
+
+
+def test_por_defecto_se_usa_la_implementacion_propia():
+    assert CanalSeguro(bytes(32), bytes(32)).implementacion == "propia"

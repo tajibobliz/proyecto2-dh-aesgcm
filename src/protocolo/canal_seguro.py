@@ -19,32 +19,51 @@ falsificar la autenticacion. Aqui se garantiza asi:
 El mismo contador da proteccion contra repeticion (replay): el receptor
 solo acepta el numero de secuencia que esta esperando.
 
-AES-GCM es criptografia simetrica, por lo que se usa la primitiva de la
-libreria 'cryptography'. Todo el acuerdo de claves que alimenta este
-canal (DH, SHA-256, HKDF, firma) es implementacion propia.
+Dos implementaciones intercambiables de AES-256-GCM:
+- "propia":   simetrico/aes.py + simetrico/gcm.py, escrita a mano (por defecto).
+- "libreria": AESGCM de la libreria 'cryptography', para comparar rendimiento.
+Ambas producen exactamente los mismos bytes, por lo que un cliente con una
+y un servidor con la otra se entienden sin problema.
 """
-
-from cryptography.exceptions import InvalidTag
-from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 from protocolo.errores import ErrorCanal
 from protocolo.memoria import borrar
+from simetrico.gcm import AESGCMPropio, EtiquetaInvalida
 
 TAM_CLAVE = 32        # AES-256
 TAM_SECUENCIA = 8     # bytes del numero de secuencia
 TAM_ETIQUETA = 16     # bytes de la etiqueta GCM
 
+IMPLEMENTACIONES = ("propia", "libreria")
+
+
+def _crear_aead(clave: bytes, implementacion: str):
+    """Devuelve el cifrador AES-256-GCM y la excepcion que lanza ante una
+    etiqueta invalida."""
+    if implementacion == "propia":
+        return AESGCMPropio(clave), EtiquetaInvalida
+    if implementacion == "libreria":
+        # Importacion diferida: el modo "propia" funciona aunque la
+        # libreria no este instalada.
+        from cryptography.exceptions import InvalidTag
+        from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+        return AESGCM(clave), InvalidTag
+    raise ValueError(f"Implementacion desconocida: {implementacion!r}")
+
 
 class CanalSeguro:
     """Canal bidireccional: una clave para enviar y otra para recibir."""
 
-    def __init__(self, clave_envio: bytes, clave_recepcion: bytes) -> None:
+    def __init__(self, clave_envio: bytes, clave_recepcion: bytes,
+                 implementacion: str = "propia") -> None:
         if len(clave_envio) != TAM_CLAVE or len(clave_recepcion) != TAM_CLAVE:
             raise ValueError("Las claves deben ser de 32 bytes (AES-256)")
+        self.implementacion = implementacion
         self._clave_envio = bytearray(clave_envio)
         self._clave_recepcion = bytearray(clave_recepcion)
-        self._aes_envio = AESGCM(bytes(self._clave_envio))
-        self._aes_recepcion = AESGCM(bytes(self._clave_recepcion))
+        self._aes_envio, self._error_etiqueta = _crear_aead(
+            bytes(self._clave_envio), implementacion)
+        self._aes_recepcion, _ = _crear_aead(bytes(self._clave_recepcion), implementacion)
         self._sec_envio = 0
         self._sec_recepcion = 0
         self._abierto = True
@@ -78,7 +97,7 @@ class CanalSeguro:
         try:
             claro = self._aes_recepcion.decrypt(
                 self._nonce(secuencia), paquete[TAM_SECUENCIA:], cabecera + asociado)
-        except InvalidTag:
+        except self._error_etiqueta:
             raise ErrorCanal(
                 "Etiqueta de autenticacion invalida: el mensaje fue alterado "
                 "o la clave no coincide") from None
@@ -89,6 +108,9 @@ class CanalSeguro:
         """Borra las claves de memoria. El canal queda inutilizable."""
         borrar(self._clave_envio)
         borrar(self._clave_recepcion)
+        for aead in (self._aes_envio, self._aes_recepcion):
+            if isinstance(aead, AESGCMPropio):
+                aead.borrar()                 # borra subclaves AES y H
         self._aes_envio = None
         self._aes_recepcion = None
         self._abierto = False

@@ -4,7 +4,6 @@ Uso (desde la raiz del proyecto):
     python src/demo_fase2.py
 """
 
-import hashlib
 import secrets
 import time
 
@@ -13,11 +12,17 @@ from hashing.sha256 import sha256
 
 
 def main() -> None:
-    print("=== 1. SHA-256 propio vs hashlib ===")
-    for texto in (b"", b"abc", b"ELC107 Criptografia y Seguridad"):
+    print("=== 1. SHA-256 propio vs vectores oficiales del NIST ===")
+    vectores = [
+        (b"", "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"),
+        (b"abc", "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"),
+        (b"abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq",
+         "248d6a61d20638b8e5c026930c3e6039a33ce45964ff2167f6ecedd419db06c1"),
+    ]
+    for texto, esperado in vectores:
         propio = sha256(texto).hex()
-        coincide = propio == hashlib.sha256(texto).hexdigest()
-        print(f"  {texto.decode()!r:<36} {propio[:32]}...  coincide: {coincide}")
+        etiqueta = repr(texto.decode()) if len(texto) < 20 else "'abcdbcde...nopq' (448 bits)"
+        print(f"  {etiqueta:<30} {propio[:32]}...  coincide: {propio == esperado}")
 
     print("\n=== 2. Efecto avalancha ===")
     a, b = b"Diffie-Hellman", b"Diffie-Hellmao"
@@ -50,11 +55,8 @@ def main() -> None:
     inicio = time.perf_counter()
     sha256(datos)
     t_propio = time.perf_counter() - inicio
-    inicio = time.perf_counter()
-    hashlib.sha256(datos).digest()
-    t_lib = time.perf_counter() - inicio
-    print(f"  SHA-256 propio (Python): {len(datos) / t_propio / 1e6:.2f} MB/s")
-    print(f"  hashlib (C optimizado) : {len(datos) / t_lib / 1e6:.0f} MB/s")
+    print(f"  SHA-256 propio (Python puro): {len(datos) / t_propio / 1e6:.2f} MB/s")
+    print("  La comparacion con la libreria esta en src/medir_rendimiento.py")
 
 
 if __name__ == "__main__":

@@ -5,7 +5,7 @@ import socket
 import time
 from pathlib import Path
 
-from protocolo.canal_seguro import CanalSeguro
+from protocolo.canal_seguro import IMPLEMENTACIONES, CanalSeguro
 from protocolo.codificacion import leer_bytes
 from protocolo.errores import ErrorProtocolo
 from protocolo.handshake import SesionCliente
@@ -17,8 +17,9 @@ class ClienteSeguro:
     """Conexion segura con el servidor. Usar con 'with' para cerrarla."""
 
     def __init__(self, host: str, puerto: int, identidad: Identidad | None = None,
-                 publica_servidor: int | None = None) -> None:
+                 publica_servidor: int | None = None, aes: str = "propia") -> None:
         self._sesion = SesionCliente(identidad, publica_servidor)
+        self._aes = aes
         self._conexion = socket.create_connection((host, puerto), timeout=30)
         self._canal: CanalSeguro | None = None
         self.huella = ""
@@ -36,7 +37,7 @@ class ClienteSeguro:
             raise
         enviar(self._conexion, confirmacion)
         self._sesion.procesar_listo(recibir_obligatorio(self._conexion))
-        self._canal = self._sesion.canal()
+        self._canal = self._sesion.canal(self._aes)
         self.huella = self._sesion.claves.huella
         self.duracion_ms = (time.perf_counter() - inicio) * 1000
 
@@ -72,6 +73,8 @@ def main() -> None:
     parser.add_argument("--claves", default="claves", help="carpeta de identidades")
     parser.add_argument("--anonimo", action="store_true",
                         help="sin autenticacion (SOLO demostracion MITM)")
+    parser.add_argument("--aes", choices=IMPLEMENTACIONES, default="propia",
+                        help="implementacion de AES-256-GCM (por defecto: propia)")
     parser.add_argument("--mensaje", action="append",
                         help="mensaje a enviar (repetible). Sin esta opcion: modo interactivo")
     args = parser.parse_args()
@@ -92,14 +95,15 @@ def main() -> None:
         print("ADVERTENCIA: modo anonimo, no se verifica al servidor")
 
     try:
-        cliente = ClienteSeguro(args.host, args.puerto, identidad, publica_servidor)
+        cliente = ClienteSeguro(args.host, args.puerto, identidad, publica_servidor,
+                                args.aes)
     except OSError as error:
         raise SystemExit(f"No se pudo conectar a {args.host}:{args.puerto}: {error}")
 
     with cliente:
         try:
             cliente.conectar()
-            print(f"[=] Canal AES-256-GCM establecido en {cliente.duracion_ms:.0f} ms. "
+            print(f"[=] Canal AES-256-GCM ({args.aes}) establecido en {cliente.duracion_ms:.0f} ms. "
                   f"Huella de sesion: {cliente.huella}")
             if args.mensaje:
                 for texto in args.mensaje:

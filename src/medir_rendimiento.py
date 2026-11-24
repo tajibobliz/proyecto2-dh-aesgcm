@@ -18,7 +18,6 @@ import statistics
 import time
 from pathlib import Path
 
-from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 from hashing.hmac_hkdf import hkdf, hmac_sha256
 from hashing.sha256 import sha256
@@ -30,6 +29,7 @@ from protocolo.dh import ParClavesDH, calcular_secreto, validar_clave_publica
 from protocolo.grupos import obtener_grupo
 from protocolo.handshake import SesionCliente, SesionServidor
 from protocolo.identidad import Identidad
+from simetrico.gcm import AESGCMPropio
 
 GRUPOS = ("demo-512", "demo-1024", "rfc3526-2048")
 filas_csv: list[tuple[str, str, float]] = []
@@ -147,22 +147,33 @@ def main() -> None:
 
     datos = secrets.token_bytes(100_000)
     clave = secrets.token_bytes(32)
-    aes = AESGCM(clave)
-    grande = secrets.token_bytes(10_000_000)
+    aes_propio = AESGCMPropio(clave)
+    t_aes_propio = medir(lambda: aes_propio.encrypt(secrets.token_bytes(12), datos, None), 3)
+    filas_aes = [["AES-256-GCM propio, 100 kB", f"{t_aes_propio:.1f}",
+                  f"{0.1 / (t_aes_propio / 1000):.2f} MB/s"]]
+    registrar("AES-256-GCM propio 100 kB", "-", t_aes_propio)
+    try:
+        # Solo para comparar: la libreria no forma parte del sistema por defecto.
+        from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+        aes = AESGCM(clave)
+        grande = secrets.token_bytes(10_000_000)
+        t_aes = medir(lambda: aes.encrypt(secrets.token_bytes(12), grande, None), 5)
+        registrar("AES-256-GCM libreria 10 MB", "-", t_aes)
+        filas_aes.append(["AES-256-GCM (libreria), 10 MB", f"{t_aes:.1f}",
+                          f"{10 / (t_aes / 1000):.0f} MB/s"])
+    except ImportError:
+        pass
     t_sha = medir(lambda: sha256(datos), 3)
     t_hmac = medir(lambda: hmac_sha256(clave, datos), 3)
     t_hkdf = medir(lambda: hkdf(clave, info=b"clave"), 9)
-    t_aes = medir(lambda: aes.encrypt(secrets.token_bytes(12), grande, None), 5)
     registrar("SHA-256 propio 100 kB", "-", t_sha)
     registrar("HMAC-SHA256 propio 100 kB", "-", t_hmac)
     registrar("HKDF 32 bytes", "-", t_hkdf)
-    registrar("AES-256-GCM 10 MB", "-", t_aes)
     tabla("5. Operaciones simetricas",
           ["operacion", "tiempo (ms)", "velocidad"],
           [["SHA-256 propio, 100 kB", f"{t_sha:.1f}", f"{0.1 / (t_sha / 1000):.2f} MB/s"],
            ["HMAC-SHA256 propio, 100 kB", f"{t_hmac:.1f}", f"{0.1 / (t_hmac / 1000):.2f} MB/s"],
-           ["HKDF, clave de 32 bytes", f"{t_hkdf:.2f}", "-"],
-           ["AES-256-GCM (libreria), 10 MB", f"{t_aes:.1f}", f"{10 / (t_aes / 1000):.0f} MB/s"]])
+           ["HKDF, clave de 32 bytes", f"{t_hkdf:.2f}", "-"]] + filas_aes)
 
     salida = Path("docs") / "resultados_rendimiento.csv"
     salida.parent.mkdir(exist_ok=True)

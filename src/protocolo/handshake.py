@@ -204,11 +204,12 @@ class SesionCliente:
         """Recibe el mensaje 4: el servidor acepto la sesion."""
         _exigir_tipo(mensaje, "listo")
 
-    def canal(self) -> CanalSeguro:
+    def canal(self, aes: str = "propia") -> CanalSeguro:
         if self.claves is None:
             raise ErrorProtocolo("El handshake no ha terminado")
         return CanalSeguro(clave_envio=bytes(self.claves.cliente_a_servidor),
-                           clave_recepcion=bytes(self.claves.servidor_a_cliente))
+                           clave_recepcion=bytes(self.claves.servidor_a_cliente),
+                           implementacion=aes)
 
 
 class SesionServidor:
@@ -301,8 +302,9 @@ class SesionServidor:
         self._lista = True
         return {"tipo": "listo"}
 
-    def canal(self) -> CanalSeguro:
+    def canal(self, aes: str = "propia") -> CanalSeguro:
         if not self._lista:
             raise ErrorProtocolo("El handshake no ha terminado")
         return CanalSeguro(clave_envio=bytes(self.claves.servidor_a_cliente),
-                           clave_recepcion=bytes(self.claves.cliente_a_servidor))
+                           clave_recepcion=bytes(self.claves.cliente_a_servidor),
+                           implementacion=aes)

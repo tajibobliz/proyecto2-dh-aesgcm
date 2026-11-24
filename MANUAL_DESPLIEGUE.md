@@ -32,8 +32,10 @@ Instalar dependencias:
 pip install -r requirements.txt
 ```
 
-Dependencias: `cryptography` (solo para la primitiva AES-256-GCM) y `pytest`
-(pruebas). Toda la logica asimetrica y de hash es implementacion propia.
+Dependencias: `pytest` (pruebas) y `cryptography`. Toda la criptografia del
+sistema es implementacion propia; `cryptography` se usa solo para validar
+en las pruebas, para el modo opcional `--aes libreria` y para comparar
+rendimiento. Con `--aes propia` (por defecto) el sistema no la necesita.
 
 Todos los comandos de este manual se ejecutan desde la carpeta raiz del
 proyecto.
@@ -97,6 +99,7 @@ Opciones principales:
 | servidor, cliente | `--host` | direccion IP | 127.0.0.1 |
 | servidor, cliente | `--puerto` | puerto TCP | 5000 |
 | servidor, cliente | `--claves` | carpeta de identidades | claves |
+| servidor, cliente | `--aes` | implementacion de AES-256-GCM: `propia` o `libreria` | propia |
 | servidor | `--permitir-anonimo` | acepta clientes sin firma (solo demo) | desactivado |
 | cliente | `--anonimo` | conecta sin firma (solo demo) | desactivado |
 
@@ -152,6 +155,7 @@ el atacante y no entre si.
 ```bash
 python src/demo_fase1.py           # aritmetica modular, Miller-Rabin, primos seguros
 python src/demo_fase2.py           # SHA-256, HMAC, HKDF
+python src/demo_aes_gcm.py         # AES-256-GCM propio con vectores oficiales
 python src/medir_rendimiento.py    # tablas de tiempos + docs/resultados_rendimiento.csv
 ```
 
@@ -161,11 +165,11 @@ python src/medir_rendimiento.py    # tablas de tiempos + docs/resultados_rendimi
 src/
   nucleo/        aritmetica modular, Miller-Rabin, primos seguros     (propio)
   hashing/       SHA-256, HMAC, HKDF                                  (propio)
-  protocolo/     Diffie-Hellman, firma Schnorr, handshake             (propio)
-                 canal_seguro.py: AES-256-GCM                         (libreria)
+  simetrico/     AES-256 y modo GCM                                   (propio)
+  protocolo/     Diffie-Hellman, firma Schnorr, handshake, canal      (propio)
   red/           transporte TCP, servidor, cliente, atacante
   servidor.py, cliente.py, atacante.py      puntos de entrada
-  generar_identidades.py, medir_rendimiento.py, demo_fase1.py, demo_fase2.py
+  generar_identidades.py, medir_rendimiento.py, demo_*.py
 tests/           pruebas unitarias y de extremo a extremo
 docs/            diagramas, capturas y resultados
 ```

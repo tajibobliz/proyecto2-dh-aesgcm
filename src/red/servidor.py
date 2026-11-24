@@ -7,6 +7,7 @@ import time
 from pathlib import Path
 
 from protocolo.codificacion import leer_bytes
+from protocolo.canal_seguro import IMPLEMENTACIONES
 from protocolo.errores import ErrorProtocolo
 from protocolo.handshake import SesionServidor
 from protocolo.identidad import Identidad
@@ -20,8 +21,10 @@ def _corto(valor_hex: str) -> str:
 class ServidorSeguro:
     def __init__(self, host: str, puerto: int, identidad: Identidad | None,
                  publicas_autorizadas: tuple[int, ...] = (),
-                 permitir_anonimo: bool = False, silencioso: bool = False) -> None:
+                 permitir_anonimo: bool = False, silencioso: bool = False,
+                 aes: str = "propia") -> None:
         self._identidad = identidad
+        self._aes = aes
         self._autorizadas = publicas_autorizadas
         self._permitir_anonimo = permitir_anonimo
         self._silencioso = silencioso
@@ -72,10 +75,10 @@ class ServidorSeguro:
         self._log(f"    <- confirmacion  firma del cliente verificada"
                   if sesion.modo == "autenticado" else
                   "    <- confirmacion  (modo anonimo: sin verificar identidad)")
-        self._log(f"[=] Canal AES-256-GCM establecido en {duracion:.0f} ms. "
+        self._log(f"[=] Canal AES-256-GCM ({self._aes}) establecido en {duracion:.0f} ms. "
                   f"Huella de sesion: {sesion.claves.huella}")
 
-        with sesion.canal() as canal:
+        with sesion.canal(self._aes) as canal:
             while True:
                 mensaje = recibir(conexion)
                 if mensaje is None:
@@ -99,6 +102,8 @@ def main() -> None:
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--puerto", type=int, default=5000)
     parser.add_argument("--claves", default="claves", help="carpeta de identidades")
+    parser.add_argument("--aes", choices=IMPLEMENTACIONES, default="propia",
+                        help="implementacion de AES-256-GCM (por defecto: propia)")
     parser.add_argument("--permitir-anonimo", action="store_true",
                         help="acepta clientes sin autenticar (SOLO demostracion MITM)")
     args = parser.parse_args()
@@ -112,10 +117,12 @@ def main() -> None:
                          "    python src/generar_identidades.py")
 
     servidor = ServidorSeguro(args.host, args.puerto, identidad,
-                              (cliente.publica,), args.permitir_anonimo)
+                              (cliente.publica,), args.permitir_anonimo,
+                              aes=args.aes)
     print(f"Servidor escuchando en {args.host}:{servidor.puerto}")
     print(f"Identidad del servidor (huella): {identidad.huella()}")
     print(f"Cliente autorizado     (huella): {cliente.huella()}")
+    print(f"Implementacion AES-256-GCM     : {args.aes}")
     if args.permitir_anonimo:
         print("ADVERTENCIA: se aceptan clientes anonimos (vulnerable a MITM)")
     print("Ctrl+C para detener.")
