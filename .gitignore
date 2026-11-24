@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/
+*.zip
+
+# Claves privadas: nunca se suben al repositorio
+claves/*.json
+!claves/*.pub.json
